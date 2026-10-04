@@ -1,7 +1,8 @@
-# pfc-developer
+# docker-xrpld
 
-Container images for PFC tooling, built straight from upstream package
-repositories — no third-party image dependencies.
+Container image for running an `xrpld` (XRP Ledger, formerly `rippled`) node,
+built straight from the upstream XRPLF package repository — no third-party
+image dependency.
 
 ## xrpld (XRP Ledger, formerly rippled)
 
