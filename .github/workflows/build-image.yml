@@ -1,0 +1,67 @@
+name: Build image
+
+# Branch pushes build-validate only (nothing published). Pushing a v<version>
+# tag builds and publishes to GHCR; the tag must match ./version exactly, so a
+# stray tag can't publish a version the Dockerfile wasn't built for.
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # GHCR requires lowercase image names; the org name contains uppercase.
+      - name: Resolve image name
+        run: echo "REGISTRY_IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+
+      - name: Tag must match ./version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          version="$(cat version)"
+          if [ "v${version}" != "${GITHUB_REF_NAME}" ]; then
+            echo "::error::git tag ${GITHUB_REF_NAME} does not match ./version (${version})" >&2
+            exit 1
+          fi
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY_IMAGE }}
+          # v3.4.1 -> 3.4.1 ; tags also move :latest
+          tags: |
+            type=semver,pattern={{version}}
+            type=ref,event=branch
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          push: ${{ startsWith(github.ref, 'refs/tags/') }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

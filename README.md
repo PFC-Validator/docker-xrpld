@@ -25,3 +25,15 @@ docker run --rm --platform linux/amd64 pfc/xrpld:3.4.1 xrpld --version
   (`command: [rippled, --conf=...]`). A `rippled -> xrpld` symlink and
   `/var/log/rippled` are provided for drop-in compatibility with charts
   written for the old image.
+
+## CI
+
+`.github/workflows/build-image.yml` publishes to GHCR on `v*` tags:
+
+```sh
+git tag v3.4.1 && git push origin v3.4.1
+# -> ghcr.io/pfc-validator/docker-xrpld:3.4.1 (+ :latest)
+```
+
+The tag must match `./version` exactly or the build fails. Pushes to `main`
+run a build-only validation without publishing.
